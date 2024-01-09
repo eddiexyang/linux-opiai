@@ -100,12 +100,12 @@
 #define ZX_UART01x_FR_CTS	0x002
 #define ZX_UART011_FR_RI	0x001
 
-#define UART011_CR_CTSEN	0x8000	/* CTS hardware flow control */
-#define UART011_CR_RTSEN	0x4000	/* RTS hardware flow control */
+#define UART011_CR_CTSEN	0x0800	/* CTS hardware flow control */
+#define UART011_CR_RTSEN	0x0400	/* RTS hardware flow control */
 #define UART011_CR_OUT2		0x2000	/* OUT2 */
 #define UART011_CR_OUT1		0x1000	/* OUT1 */
-#define UART011_CR_RTS		0x0800	/* RTS */
-#define UART011_CR_DTR		0x0400	/* DTR */
+#define UART011_CR_RTS		0x8000	/* RTS */
+#define UART011_CR_DTR		0x4000	/* DTR */
 #define UART011_CR_RXE		0x0200	/* receive enable */
 #define UART011_CR_TXE		0x0100	/* transmit enable */
 #define UART011_CR_LBE		0x0080	/* loopback enable */

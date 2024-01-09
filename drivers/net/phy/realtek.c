@@ -218,12 +218,37 @@ static int rtl8211c_config_init(struct phy_device *phydev)
 			    CTL1000_ENABLE_MASTER | CTL1000_AS_MASTER);
 }
 
+static int phy_rtl8211f_led_fixup(struct phy_device *phydev)
+{
+	int val;
+
+	printk("%s in\n", __func__);
+
+	/*switch to extension page 0xd04*/
+	phy_write(phydev, 31, 0xd04);
+
+	/*set led1(yellow) act*/
+	/*set led2(green) link*/
+	//val = 0xae00;
+	val = 0xc160;
+	phy_write(phydev, 16, val);
+
+	val = 0x0;
+	phy_write(phydev, 17, val);
+	/*switch back to page0*/
+	phy_write(phydev,31,0x00);
+
+	return 0;
+}
+
 static int rtl8211f_config_init(struct phy_device *phydev)
 {
 	struct rtl821x_priv *priv = phydev->priv;
 	struct device *dev = &phydev->mdio.dev;
 	u16 val_txdly, val_rxdly;
 	int ret;
+
+	phy_rtl8211f_led_fixup(phydev);
 
 	ret = phy_modify_paged_changed(phydev, 0xa43, RTL8211F_PHYCR1,
 				       RTL8211F_ALDPS_PLL_OFF | RTL8211F_ALDPS_ENABLE | RTL8211F_ALDPS_XTAL_OFF,
