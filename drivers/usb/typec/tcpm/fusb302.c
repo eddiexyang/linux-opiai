@@ -76,13 +76,14 @@ struct fusb302_chip {
 	struct tcpm_port *tcpm_port;
 	struct tcpc_dev tcpc_dev;
 
-	struct regulator *vbus;
+	//struct regulator *vbus;
 
 	spinlock_t irq_lock;
 	struct work_struct irq_work;
 	bool irq_suspended;
 	bool irq_while_suspended;
 	struct gpio_desc *gpio_int_n;
+	struct gpio_desc *vbus_gpio;
 	int gpio_int_n_irq;
 	struct extcon_dev *extcon;
 
@@ -764,9 +765,10 @@ static int tcpm_set_vbus(struct tcpc_dev *dev, bool on, bool charge)
 		fusb302_log(chip, "vbus is already %s", on ? "On" : "Off");
 	} else {
 		if (on)
-			ret = regulator_enable(chip->vbus);
+			ret = gpiod_direction_output(chip->vbus_gpio, 1);
 		else
-			ret = regulator_disable(chip->vbus);
+			ret = gpiod_direction_output(chip->vbus_gpio, 0);
+			//ret = regulator_disable(chip->vbus);
 		if (ret < 0) {
 			fusb302_log(chip, "cannot %s vbus regulator, ret=%d",
 				    on ? "enable" : "disable", ret);
@@ -1623,6 +1625,12 @@ static int init_gpio(struct fusb302_chip *chip)
 	struct device *dev = chip->dev;
 	int ret = 0;
 
+	chip->vbus_gpio = devm_gpiod_get_optional(dev, "vbus",GPIOD_OUT_LOW);
+	if (IS_ERR(chip->vbus_gpio)) {
+		dev_err(dev, "failed to request vbus-gpio\n");
+		return PTR_ERR(chip->vbus_gpio);
+	}
+
 	chip->gpio_int_n = devm_gpiod_get(dev, "fcs,int_n", GPIOD_IN);
 	if (IS_ERR(chip->gpio_int_n)) {
 		dev_err(dev, "failed to request gpio_int_n\n");
@@ -1705,9 +1713,9 @@ static int fusb302_probe(struct i2c_client *client,
 			return -EPROBE_DEFER;
 	}
 
-	chip->vbus = devm_regulator_get(chip->dev, "vbus");
-	if (IS_ERR(chip->vbus))
-		return PTR_ERR(chip->vbus);
+	//chip->vbus = devm_regulator_get(chip->dev, "vbus");
+	//if (IS_ERR(chip->vbus))
+	//	return PTR_ERR(chip->vbus);
 
 	chip->wq = create_singlethread_workqueue(dev_name(chip->dev));
 	if (!chip->wq)
@@ -1743,8 +1751,8 @@ static int fusb302_probe(struct i2c_client *client,
 	}
 
 	ret = request_irq(chip->gpio_int_n_irq, fusb302_irq_intn,
-			  IRQF_ONESHOT | IRQF_TRIGGER_LOW,
-			  "fsc_interrupt_int_n", chip);
+			  IRQF_TRIGGER_LOW,
+			  "fusb302_irq", chip);
 	if (ret < 0) {
 		dev_err(dev, "cannot request IRQ for GPIO Int_N, ret=%d", ret);
 		goto tcpm_unregister_port;
