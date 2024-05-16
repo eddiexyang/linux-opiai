@@ -42,6 +42,15 @@
  */
 #define T_BC_LVL_DEBOUNCE_DELAY_MS 30
 
+enum hiusbc_dr_mode {
+        HIUSBC_DR_MODE_UNKNOWN,
+        HIUSBC_DR_MODE_HOST,
+        HIUSBC_DR_MODE_DEVICE,
+        HIUSBC_DR_MODE_BOTH,
+};
+
+extern int hiusbc_switch_mode(u32 usbc_id, enum hiusbc_dr_mode mode);
+
 enum toggling_mode {
 	TOGGLING_MODE_OFF,
 	TOGGLING_MODE_DRP,
@@ -84,6 +93,7 @@ struct fusb302_chip {
 	bool irq_while_suspended;
 	struct gpio_desc *gpio_int_n;
 	struct gpio_desc *vbus_gpio;
+	struct gpio_desc *typec_gpio;
 	int gpio_int_n_irq;
 	struct extcon_dev *extcon;
 
@@ -907,6 +917,24 @@ static int tcpm_set_roles(struct tcpc_dev *dev, bool attached,
 	}
 	fusb302_log(chip, "pd header := %s, %s", typec_role_name[pwr],
 		    typec_data_role_name[data]);
+
+	if (data == TYPEC_HOST)
+	{
+		ret = hiusbc_switch_mode(2, HIUSBC_DR_MODE_HOST);
+		fusb302_log(chip, "set usb mod := %d", data);
+	}
+
+	if (data == TYPEC_DEVICE)
+	{
+		ret = hiusbc_switch_mode(2, HIUSBC_DR_MODE_DEVICE);
+		fusb302_log(chip, "set usb mod := %d", data);
+	}
+
+	if (ret < 0) {
+		fusb302_log(chip, "unable to switch usb mode: %d, ret=%d", data, ret);
+		goto done;
+	}
+
 done:
 	mutex_unlock(&chip->lock);
 
@@ -1373,6 +1401,11 @@ static int fusb302_handle_togdone_src(struct fusb302_chip *chip,
 		    typec_cc_status_name[cc1],
 		    typec_cc_status_name[cc2]);
 
+	if (cc2 == TYPEC_CC_RD)
+		ret = gpiod_direction_output(chip->typec_gpio, 1);
+	else
+		ret = gpiod_direction_output(chip->typec_gpio, 0);
+
 	return ret;
 }
 
@@ -1629,6 +1662,12 @@ static int init_gpio(struct fusb302_chip *chip)
 	if (IS_ERR(chip->vbus_gpio)) {
 		dev_err(dev, "failed to request vbus-gpio\n");
 		return PTR_ERR(chip->vbus_gpio);
+	}
+
+	chip->typec_gpio = devm_gpiod_get_optional(dev, "typec",GPIOD_OUT_LOW);
+	if (IS_ERR(chip->typec_gpio)) {
+		dev_err(dev, "failed to request typec_gpio\n");
+		return PTR_ERR(chip->typec_gpio);
 	}
 
 	chip->gpio_int_n = devm_gpiod_get(dev, "fcs,int_n", GPIOD_IN);
