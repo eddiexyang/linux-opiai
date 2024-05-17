@@ -822,7 +822,7 @@ static void bq25700_enable_charger(struct bq25700_device *charger,
 				   u32 input_current)
 {
 	bq25700_field_write(charger, INPUT_CURRENT, input_current);
-	bq25700_field_write(charger, CHARGE_CURRENT, charger->init_data.ichg);
+	//bq25700_field_write(charger, CHARGE_CURRENT, charger->init_data.ichg);
 }
 
 static enum power_supply_property bq25700_power_supply_props[] = {
@@ -1043,6 +1043,8 @@ static int bq25700_probe(struct i2c_client *client,
 	bq25700_init_sysfs(charger);
 
 	bq25700_power_supply_init(charger);
+
+	bq25700_enable_charger(charger, 0x57); // input current: 43500ma
 
 	return ret;
 }
