@@ -51,6 +51,8 @@ enum hiusbc_dr_mode {
 
 extern int hiusbc_switch_mode(u32 usbc_id, enum hiusbc_dr_mode mode);
 
+#define USB_NUM  1
+
 enum toggling_mode {
 	TOGGLING_MODE_OFF,
 	TOGGLING_MODE_DRP,
@@ -920,13 +922,13 @@ static int tcpm_set_roles(struct tcpc_dev *dev, bool attached,
 
 	if (data == TYPEC_HOST)
 	{
-		ret = hiusbc_switch_mode(2, HIUSBC_DR_MODE_HOST);
+		ret = hiusbc_switch_mode(USB_NUM, HIUSBC_DR_MODE_HOST);
 		fusb302_log(chip, "set usb mod := %d", data);
 	}
 
 	if (data == TYPEC_DEVICE)
 	{
-		ret = hiusbc_switch_mode(2, HIUSBC_DR_MODE_DEVICE);
+		ret = hiusbc_switch_mode(USB_NUM, HIUSBC_DR_MODE_DEVICE);
 		fusb302_log(chip, "set usb mod := %d", data);
 	}
 
