@@ -1,4 +1,0 @@
-config USB_HIUSBC
-	tristate "Self-developed USB Controller Driver"
-	help
-	  Say Y to enable Self-developed USB Controller Driver

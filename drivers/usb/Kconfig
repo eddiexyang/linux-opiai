@@ -159,6 +159,4 @@ source "drivers/usb/typec/Kconfig"
 
 source "drivers/usb/roles/Kconfig"
 
-source "drivers/usb/hiusbc/Kconfig"
-
 endif # USB_SUPPORT
