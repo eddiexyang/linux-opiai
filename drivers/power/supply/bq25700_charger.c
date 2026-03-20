@@ -953,22 +953,21 @@ static int bq25700_power_supply_init(struct bq25700_device *charger)
 
 	psy_cfg.supplied_to = bq25700_charger_supplied_to;
 	psy_cfg.num_supplicants = ARRAY_SIZE(bq25700_charger_supplied_to);
-	psy_cfg.of_node = charger->dev->of_node;
+	psy_cfg.fwnode = dev_fwnode(charger->dev);
 
-	charger->supply_charger =
-		power_supply_register(charger->dev,
-				      &bq25700_power_supply_desc,
-				      &psy_cfg);
+	charger->supply_charger = devm_power_supply_register(charger->dev,
+							     &bq25700_power_supply_desc,
+							     &psy_cfg);
 
 	return PTR_ERR_OR_ZERO(charger->supply_charger);
 }
 
-static int bq25700_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+static int bq25700_probe(struct i2c_client *client)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct device *dev = &client->dev;
 	struct bq25700_device *charger;
+	struct power_supply *battery;
 	int ret = 0;
 	u32 i = 0;
 
@@ -1025,12 +1024,13 @@ static int bq25700_probe(struct i2c_client *client,
 	 * CHARGE_CURRENT would make system power off
 	 */
 	if (of_parse_phandle(charger->dev->of_node, "ti,battery", 0)) {
-		if (IS_ERR_OR_NULL(power_supply_get_by_phandle(
-						charger->dev->of_node,
-						"ti,battery"))) {
+		battery = power_supply_get_by_reference(dev_fwnode(charger->dev),
+							 "ti,battery");
+		if (IS_ERR_OR_NULL(battery)) {
 			dev_info(charger->dev, "No battery found\n");
 			return -EPROBE_DEFER;
 		}
+		power_supply_put(battery);
 		dev_info(charger->dev, "Battery found\n");
 	}
 
