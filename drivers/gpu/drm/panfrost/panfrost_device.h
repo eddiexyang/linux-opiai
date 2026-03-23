@@ -104,11 +104,17 @@ struct panfrost_compatible {
 	/* Vendor implementation quirks callback */
 	void (*vendor_quirk)(struct panfrost_device *pfdev);
 
+	/* Vendor early init callback, called before clk/reset/pm_domain */
+	int (*vendor_init)(struct panfrost_device *pfdev);
+
 	/* Allowed PM features */
 	u8 pm_features;
 
 	/* GPU configuration quirks */
 	u8 gpu_quirks;
+
+	/* Skip clock, devfreq, and regulator init (SoC manages clocks via MMIO) */
+	bool no_clock;
 };
 
 /**
@@ -130,6 +136,9 @@ struct panfrost_device {
 	int mmu_irq;
 
 	void __iomem *iomem;
+	void __iomem *sched_reg;
+	void __iomem *subctrl_reg;
+	void __iomem *wrap_reg;
 	struct clk *clock;
 	struct clk *bus_clock;
 	struct regulator_bulk_data *regulators;
