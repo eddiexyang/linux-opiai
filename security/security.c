@@ -405,7 +405,7 @@ static void __init ordered_lsm_parse(const char *order, const char *origin)
 	kfree(sep);
 }
 
-static void __init lsm_static_call_init(struct security_hook_list *hl)
+static void lsm_static_call_init(struct security_hook_list *hl)
 {
 	struct lsm_static_call *scall = hl->scalls;
 	int i;
@@ -422,6 +422,40 @@ static void __init lsm_static_call_init(struct security_hook_list *hl)
 		scall++;
 	}
 	panic("%s - Ran out of static slots.\n", __func__);
+}
+
+static void lsm_static_call_remove(struct security_hook_list *hl)
+{
+	struct lsm_static_call *scall = hl->scalls;
+	int idx = -1;
+	int last = -1;
+	int i;
+
+	for (i = 0; i < MAX_LSM_COUNT; i++) {
+		if (scall[i].hl != NULL)
+			last = i;
+		if (scall[i].hl == hl && idx < 0)
+			idx = i;
+	}
+
+	if (idx < 0 || last < 0)
+		return;
+
+	for (i = idx; i < last; i++) {
+		struct security_hook_list *next = scall[i + 1].hl;
+
+		__static_call_update(scall[i].key, scall[i].trampoline,
+				     next ? next->hook.lsm_func_addr : NULL);
+		scall[i].hl = next;
+		if (next)
+			static_branch_enable(scall[i].active);
+		else
+			static_branch_disable(scall[i].active);
+	}
+
+	__static_call_update(scall[last].key, scall[last].trampoline, NULL);
+	scall[last].hl = NULL;
+	static_branch_disable(scall[last].active);
 }
 
 static void __init lsm_early_cred(struct cred *cred);
@@ -617,8 +651,8 @@ static int lsm_append(const char *new, char **result)
  *
  * Each LSM has to register its hooks with the infrastructure.
  */
-void __init security_add_hooks(struct security_hook_list *hooks, int count,
-			       const struct lsm_id *lsmid)
+void security_add_hooks(struct security_hook_list *hooks, int count,
+			const struct lsm_id *lsmid)
 {
 	int i;
 
@@ -647,6 +681,14 @@ void __init security_add_hooks(struct security_hook_list *hooks, int count,
 		if (lsm_append(lsmid->name, &lsm_names) < 0)
 			panic("%s - Cannot get early memory.\n", __func__);
 	}
+}
+
+void security_delete_hooks(struct security_hook_list *hooks, int count)
+{
+	int i;
+
+	for (i = 0; i < count; i++)
+		lsm_static_call_remove(&hooks[i]);
 }
 
 int call_blocking_lsm_notifier(enum lsm_event event, void *data)
