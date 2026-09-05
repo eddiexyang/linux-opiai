@@ -1,0 +1,45 @@
+name: Build kernel Image
+
+on:
+  push:
+    branches:
+      - fix/pcie-rc-built-in
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout linux-opiai
+        uses: actions/checkout@v4
+
+      - name: Configure kernel
+        run: |
+          llvm="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/"
+          make ARCH=arm64 LLVM="$llvm" LOCALVERSION=-opiai ascend310B_defconfig
+          make ARCH=arm64 LLVM="$llvm" LOCALVERSION=-opiai olddefconfig
+          grep -qx 'CONFIG_PCIE_RC_SR=y' .config
+
+      - name: Build Image
+        run: |
+          llvm="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/"
+          make ARCH=arm64 LLVM="$llvm" LOCALVERSION=-opiai Image -j"$(nproc)"
+
+      - name: Verify built-in drivers
+        run: |
+          llvm="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/"
+          "${llvm}llvm-nm" vmlinux | grep -Eq ' [Tt] drv_pcierc_module_init$'
+          test "$(od -An -tx1 -N4 -j56 arch/arm64/boot/Image | tr -d ' \n')" = 41524d64
+
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-opiai-Image
+          path: arch/arm64/boot/Image
+          if-no-files-found: error
+          retention-days: 30
